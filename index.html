@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Sistem Pelacakan Pelanggaran Murid - Final</title>
+
+    <!-- Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Quicksand:wght@400;600&family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+
+    <!-- jsPDF untuk export PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <style>
+        :root{
+            --primary-dark:#003366;
+            --primary-mid:#005577;
+            --accent:#cc0000;
+            --muted:#e0e0e0;
+        }
+        *{box-sizing:border-box}
+        body { font-family: 'Quicksand', sans-serif; margin: 0; padding: 0; background-color: #f5f5f5; color: #333; }
+        h1,h2,h3{ font-family:'Playfair Display', serif; margin:0 0 10px 0; }
+        nav { background: var(--primary-dark); padding: 12px 10px; display:flex; gap:12px; align-items:center; justify-content:center; flex-wrap:wrap; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        nav a, nav button, nav span { color:#fff; text-decoration:none; font-weight:600; background:none; border:none; cursor:pointer; font-family:'Poppins',sans-serif; }
+        nav button { background: linear-gradient(45deg,var(--primary-dark),var(--primary-mid)); color:#fff; padding:8px 14px; border-radius:20px; box-shadow:0 3px 6px rgba(0,0,0,0.12);}
+        .section { padding:40px 18px; max-width:1200px; margin:20px auto; }
+        .banner { background: linear-gradient(135deg,var(--primary-dark),var(--primary-mid)); color:#fff; text-align:center; padding:60px 20px; border-radius:14px; }
+        .banner h1{ font-size:2.4rem;}
+        .categories{ display:flex; gap:18px; justify-content:center; flex-wrap:wrap; margin-top:18px;}
+        .category{ background:#fff; border-radius:12px; padding:16px; width:160px; text-align:center; box-shadow:0 6px 16px rgba(0,0,0,0.06);}
+        .category img{ width:74px; height:74px; object-fit:cover; border-radius:8px; }
+
+        /* product / student list */
+        .products { display: grid; grid-template-columns: repeat(auto-fit,minmax(240px,1fr)); gap:18px; }
+        .product-card { background:#fff; border-radius:12px; padding:16px; text-align:center; box-shadow:0 6px 16px rgba(0,0,0,0.06); }
+        .product-card img{ width:100%; height:150px; object-fit:cover; border-radius:8px; }
+        .filters{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; align-items:center;}
+        .filters select, .filters input{ padding:8px 10px; border-radius:8px; border:1px solid var(--primary-dark); }
+
+        .tab { display:none; }
+        .tab.active { display:block; }
+
+        .product-detail { display:flex; gap:20px; flex-wrap:wrap; align-items:flex-start; }
+        .product-detail img{ width:100%; max-width:420px; height:320px; object-fit:cover; border-radius:12px; }
+        .violation-form{ background:#fff; padding:14px; border-radius:12px; box-shadow:0 6px 14px rgba(0,0,0,0.05); }
+
+        .reviews{ margin-top:14px; }
+        .review{ background:var(--muted); padding:10px; border-radius:8px; margin-bottom:8px; }
+
+        .contact-form{ background:#fff; padding:20px; border-radius:12px; box-shadow:0 6px 14px rgba(0,0,0,0.05); text-align:center;}
+        .social-links a{ margin:0 8px; color:var(--primary-dark); font-weight:700; text-decoration:none; }
+
+        .warning{ color:var(--accent); font-weight:700; }
+
+        .cart-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); justify-content:center; align-items:center; z-index:999; }
+        .cart-content{ background:#fff; padding:18px; border-radius:12px; width:90%; max-width:640px; max-height:80vh; overflow:auto; }
+
+        /* admin panel */
+        .admin-controls input{ padding:8px 10px; border-radius:8px; margin-right:6px; border:1px solid var(--primary-dark); }
+        .admin-student{ background:#fff; padding:10px; border-radius:8px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; gap:8px; box-shadow:0 4px 10px rgba(0,0,0,0.04); }
+
+        footer{ text-align:center; padding:18px; color:#666; font-size:0.9rem;}
+        @media (max-width:640px){
+            .product-detail{ flex-direction:column; }
+            .banner h1{ font-size:1.6rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <nav>
+        <a href="#" onclick="showTab('home')">Home</a>
+        <a href="#" onclick="showTab('shop')">Daftar Siswa</a>
+        <a href="#" onclick="showTab('contact')">Kontak Sekolah</a>
+        <button onclick="showCart()">Daftar Pelanggaran (<span id="cartCount">0</span>)</button>
+        <button onclick="showTab('exportPage')">Export & Filter</button>
+        <button onclick="showTab('loginPage')">Login Admin</button>
+    </nav>
+
+    <!-- HOME -->
+    <div id="home" class="tab active">
+        <div class="section banner">
+            <h1>Pelacakan Pelanggaran Murid untuk Disiplin Sekolah</h1>
+            <p>Sistem digital sederhana untuk memantau dan meningkatkan kedisiplinan siswa.</p>
+            <div style="margin-top:14px;">
+                <button onclick="showTab('shop')">Lihat Daftar Siswa</button>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="categories">
+                <div class="category">
+                    <img src="istockphoto-941011762-612x612.jpg" alt="Ringan">
+                    <h3>Pelanggaran Ringan</h3>
+                    <p>Terlambat, Rambut Panjang</p>
+                </div>
+                <div class="category">
+                    <img src="png-clipart-yellow-color-yellow-circle-miscellaneous-label.png" alt="Sedang">
+                    <h3>Pelanggaran Sedang</h3>
+                    <p>Berkelahi, Merokok</p>
+                </div>
+                <div class="category">
+                    <img src="Red-solid-color-round-circle-shapes-shape_156057_wh1200.png" alt="Berat">
+                    <h3>Pelanggaran Berat</h3>
+                    <p>Pembulian, Narkoba</p>
+                </div>
+                <div class="category">
+                    <img src="pngtree-infographic-bullet-point-option-premium-design-png-image_5901913.jpg" alt="Poin">
+                    <h3>Sistem Poin</h3>
+                    <p>Pelacakan Kumulatif</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="testimonials">
+                <h2>Testimoni Guru</h2>
+                <div class="testimonial">"Sistem ini membantu kami memantau siswa lebih efektif!" - Bu Sari</div>
+                <div class="testimonial">"Disiplin siswa meningkat berkat pelacakan digital." - Pak Budi</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SHOP / Daftar Siswa -->
+    <div id="shop" class="tab">
+        <div class="section">
+            <h1>Daftar Siswa</h1>
+
+            <div class="filters">
+                <select id="classFilter">
+                    <option value="">Semua Kelas</option>
+                    <option value="10">Kelas 10</option>
+                    <option value="11">Kelas 11</option>
+                    <option value="12">Kelas 12</option>
+                </select>
+
+                <input type="number" id="pointsFilter" placeholder="Max Poin">
+
+                <select id="violationFilter">
+                    <option value="">Semua Jenis</option>
+                    <option value="Ringan">Ringan</option>
+                    <option value="Sedang">Sedang</option>
+                    <option value="Berat">Berat</option>
+                </select>
+
+                <button onclick="filterStudents()">Filter</button>
+                <button onclick="clearFilters()">Reset</button>
+            </div>
+
+            <div class="products" id="studentList"></div>
+        </div>
+    </div>
+
+    <!-- Detail siswa -->
+    <div id="productDetail" class="tab">
+        <div class="section product-detail">
+            <img id="detailImg" src="" alt="Siswa">
+            <div style="flex:1; min-width:260px;">
+                <h1 id="detailName"></h1>
+                <p id="detailClass"></p>
+                <p id="detailPoints">Total Poin: <span id="pointsValue"></span> <span id="warningText"></span></p>
+                <p id="detailDesc"></p>
+
+                <div class="violation-form" style="margin-top:12px;">
+                    <h3>Tambah Pelanggaran</h3>
+                    <select id="violationType" style="width:100%; margin-bottom:8px;">
+                        <option value="Ringan">Ringan (5 poin)</option>
+                        <option value="Sedang">Sedang (15 poin)</option>
+                        <option value="Berat">Berat (30 poin)</option>
+                    </select>
+                    <input type="text" id="violationDesc" placeholder="Deskripsi pelanggaran" style="width:100%; margin-bottom:8px; padding:8px; border-radius:8px; border:1px solid var(--primary-dark);">
+                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                        <button onclick="addViolation()">Tambah</button>
+                        <button onclick="exportPDF()">Cetak Raport (PDF)</button>
+                        <button onclick="showTab('shop')">Kembali</button>
+                    </div>
+                </div>
+
+                <div class="reviews">
+                    <h3>Riwayat Pelanggaran</h3>
+                    <div id="violationHistory"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONTACT (tanpa form input) -->
+    <div id="contact" class="tab">
+        <div class="section contact-form">
+            <h1>Kontak Sekolah</h1>
+            <p>Email: info@sekolah.com</p>
+            <p>WhatsApp: +628123456789</p>
+
+            <h3>Media Sosial Resmi Sekolah</h3>
+            <div class="social-links">
+                <a href="#" target="_blank">Instagram</a> |
+                <a href="#" target="_blank">TikTok</a> |
+                <a href="#" target="_blank">Website Sekolah</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- CART MODAL -->
+    <div id="cartModal" class="cart-modal">
+        <div class="cart-content">
+            <h2>Daftar Pelanggaran</h2>
+            <div id="cartItems"></div>
+            <div style="margin-top:12px; display:flex; gap:8px; justify-content:flex-end;">
+                <button onclick="downloadAllCSV()">Export Semua (.csv)</button>
+                <button onclick="clearCart()">Kosongkan Daftar</button>
+                <button onclick="closeCart()">Tutup</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- LOGIN ADMIN -->
+    <div id="loginPage" class="tab">
+        <div class="section" style="max-width:520px; margin:20px auto;">
+            <h2>Login Admin</h2>
+            <div style="display:flex; gap:8px; flex-direction:column;">
+                <input id="adminUser" placeholder="Username" style="padding:10px; border-radius:8px; border:1px solid var(--primary-dark);">
+                <input id="adminPass" placeholder="Password" type="password" style="padding:10px; border-radius:8px; border:1px solid var(--primary-dark);">
+                <div style="display:flex; gap:8px;">
+                    <button onclick="loginAdmin()">Login</button>
+                    <button onclick="showTab('home')">Batal</button>
+                </div>
+                <p id="loginError" style="color:var(--accent)"></p>
+                <p style="font-size:0.9rem; color:#555">Default: <b>admin / 1234</b></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ADMIN PANEL -->
+    <div id="adminPanel" class="tab">
+        <div class="section" style="max-width:900px; margin:20px auto;">
+            <h2>Panel Admin</h2>
+
+            <div style="margin:10px 0;" class="admin-controls">
+                <h3>Tambah Siswa</h3>
+                <input id="newName" placeholder="Nama" />
+                <input id="newClass" placeholder="Kelas" />
+                <input id="newImg" placeholder="URL Foto (opsional)" />
+                <button onclick="addStudent()">Tambah</button>
+            </div>
+
+            <div style="margin-top:18px;">
+                <h3>Daftar Siswa</h3>
+                <div id="adminStudentList"></div>
+            </div>
+
+            <div style="margin-top:18px;">
+                <button onclick="logoutAdmin()">Logout</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- EXPORT & FILTER PAGE -->
+    <div id="exportPage" class="tab">
+        <div class="section" style="max-width:900px; margin:20px auto;">
+            <h2>Export Data & Filter Pelanggaran</h2>
+            <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                <button onclick="exportSelectedPDF()">Export Raport PDF (buka detail siswa lalu klik cetak)</button>
+                <button onclick="exportAllCSV()">Export Semua Data (.csv)</button>
+            </div>
+
+            <hr style="margin:12px 0;">
+
+            <h3>Filter Pelanggaran</h3>
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                <select id="filterMonth">
+                    <option value="">Semua Bulan</option>
+                    <option value="1">Januari</option>
+                    <option value="2">Februari</option>
+                    <option value="3">Maret</option>
+                    <option value="4">April</option>
+                    <option value="5">Mei</option>
+                    <option value="6">Juni</option>
+                    <option value="7">Juli</option>
+                    <option value="8">Agustus</option>
+                    <option value="9">September</option>
+                    <option value="10">Oktober</option>
+                    <option value="11">November</option>
+                    <option value="12">Desember</option>
+                </select>
+
+                <select id="filterType">
+                    <option value="">Semua Jenis</option>
+                    <option value="Ringan">Ringan</option>
+                    <option value="Sedang">Sedang</option>
+                    <option value="Berat">Berat</option>
+                </select>
+
+                <button onclick="filterViolations()">Terapkan Filter</button>
+                <button onclick="document.getElementById('filteredResults').innerHTML='';">Reset</button>
+            </div>
+
+            <div id="filteredResults" style="margin-top:12px;"></div>
+        </div>
+    </div>
+
+    <footer>© Sistem Pelacakan Pelanggaran Murid</footer>
+
+    <script>
+    // ====== DATA & STATE ======
+    let students = JSON.parse(localStorage.getItem('students')) || [
+        { id: 1, name: 'Ahmad', class: '10', points: 15, desc: 'Siswa aktif.', violations: ['Terlambat (Ringan)'] },
+        { id: 2, name: 'Sari', class: '11', points: 5, desc: 'Siswa baik.', violations: ['Rambut Panjang (Ringan)'] },
+        { id: 3, name: 'Budi', class: '12', points: 50, desc: 'Perlu perhatian.', violations: ['Merokok (Sedang)', 'Pembulian (Berat)'] }
+    ];
+
+    let cart = JSON.parse(localStorage.getItem('cart')) || []; // daftar pelanggaran yang tercatat (untuk export / review)
+    let currentStudent = null;
+    let isAdmin = JSON.parse(localStorage.getItem('isAdmin')) || false;
+
+    // ====== UTILS ======
+    function saveData(){
+        localStorage.setItem('students', JSON.stringify(students));
+        localStorage.setItem('cart', JSON.stringify(cart));
+        localStorage.setItem('isAdmin', JSON.stringify(isAdmin));
+        updateCartCount();
+    }
+
+    function updateCartCount(){
+        document.getElementById('cartCount').innerText = cart.length;
+    }
+
+    // ====== NAV / TABS ======
+    function showTab(tabId){
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        const el = document.getElementById(tabId);
+        if(el) el.classList.add('active');
+
+        // load when necessary
+        if(tabId === 'shop') loadStudents();
+        if(tabId === 'adminPanel') {
+            if(!isAdmin){
+                alert('Silakan login admin terlebih dahulu.');
+                showTab('loginPage');
+                return;
+            }
+            updateAdminList();
+        }
+        if(tabId === 'exportPage'){
+            // ensure cart count updated
+            updateCartCount();
+        }
+    }
+
+    // ====== LOAD & FILTER SISWA ======
+    function loadStudents(filtered = students){
+        const list = document.getElementById('studentList');
+        list.innerHTML = '';
+        filtered.forEach(s=>{
+            const warning = s.points > 30 ? '<span class="warning">(Peringatan Tinggi)</span>' : '';
+            const html = `
+                <div class="product-card">
+                    <h3>${s.name}</h3>
+                    <p>Kelas ${s.class} | Poin: ${s.points} ${warning}</p>
+                    <div style="display:flex; gap:8px; justify-content:center; margin-top:8px;">
+                        <button onclick="viewStudent(${s.id})">Lihat Detail</button>
+                        <button onclick="prepareQuickEdit(${s.id})">Edit</button>
+                    </div>
+                </div>
+            `;
+            list.insertAdjacentHTML('beforeend', html);
+        });
+    }
+
+    function filterStudents(){
+        const classFilter = document.getElementById('classFilter').value;
+        const pointsFilter = parseInt(document.getElementById('pointsFilter').value) || Infinity;
+        const violationFilter = document.getElementById('violationFilter').value;
+        let filtered = students.filter(s=>{
+            const matchClass = (!classFilter || s.class === classFilter);
+            const matchPoints = (s.points <= pointsFilter);
+            const matchViolation = (!violationFilter || s.violations.some(v => v.includes(violationFilter)));
+            return matchClass && matchPoints && matchViolation;
+        });
+        loadStudents(filtered);
+    }
+
+    function clearFilters(){
+        document.getElementById('classFilter').value = '';
+        document.getElementById('pointsFilter').value = '';
+        document.getElementById('violationFilter').value = '';
+        loadStudents();
+    }
+
+    // ====== VIEW DETAIL ======
+    function viewStudent(id){
+        currentStudent = students.find(s => s.id === id);
+        if(!currentStudent) return;
+        document.getElementById('detailImg').src = currentStudent.img || 'https://via.placeholder.com/420x320/cccccc/000000?text=No+Image';
+        document.getElementById('detailName').innerText = currentStudent.name;
+        document.getElementById('detailClass').innerText = 'Kelas: ' + currentStudent.class;
+        document.getElementById('pointsValue').innerText = currentStudent.points;
+        document.getElementById('detailDesc').innerText = currentStudent.desc || '';
+        document.getElementById('warningText').innerHTML = currentStudent.points > 30 ? '<span class="warning">(PERINGATAN TINGGI)</span>' : '';
+        const historyDiv = document.getElementById('violationHistory');
+        historyDiv.innerHTML = '';
+        currentStudent.violations.forEach(v=>{
+            historyDiv.insertAdjacentHTML('beforeend', `<div class="review">${v}</div>`);
+        });
+        showTab('productDetail');
+    }
+
+    // ====== ADD VIOLATION ======
+    function addViolation(){
+        if(!currentStudent) return alert('Pilih siswa terlebih dahulu.');
+        const type = document.getElementById('violationType').value;
+        const desc = document.getElementById('violationDesc').value.trim();
+        if(!desc) return alert('Deskripsi pelanggaran wajib diisi.');
+        let pointAdd = 0;
+        if(type === 'Ringan') pointAdd = 5;
+        if(type === 'Sedang') pointAdd = 15;
+        if(type === 'Berat') pointAdd = 30;
+
+        // update student
+        const st = students.find(s => s.id === currentStudent.id);
+        st.points += pointAdd;
+        const entryText = `${new Date().toLocaleString()} — ${desc} (${type})`;
+        st.violations.push(entryText);
+
+        // save to cart (global list)
+        cart.push({
+            id: Date.now(),
+            studentId: st.id,
+            student: st.name,
+            class: st.class,
+            type,
+            desc,
+            point: pointAdd,
+            time: new Date().toISOString()
+        });
+
+        saveData();
+        document.getElementById('violationDesc').value = '';
+        viewStudent(st.id);
+        alert('Pelanggaran berhasil ditambahkan.');
+    }
+
+    // ====== CART MODAL ======
+    function showCart(){
+        const modal = document.getElementById('cartModal');
+        const items = document.getElementById('cartItems');
+        items.innerHTML = '';
+        if(cart.length === 0) items.innerHTML = '<p>Tidak ada pelanggaran.</p>';
+        cart.slice().reverse().forEach(c=>{
+            const timeLocal = new Date(c.time).toLocaleString();
+            items.insertAdjacentHTML('beforeend', `
+                <div style="padding:10px; border-bottom:1px solid #eee;">
+                    <b>${c.student}</b> (${c.class})<br>
+                    <small>${timeLocal}</small><br>
+                    Jenis: ${c.type} | Poin: +${c.point}<br>
+                    Deskripsi: ${c.desc}
+                </div>
+            `);
+        });
+        modal.style.display = 'flex';
+        updateCartCount();
+    }
+    function closeCart(){ document.getElementById('cartModal').style.display = 'none'; }
+    function clearCart(){ if(confirm('Kosongkan semua daftar pelanggaran (cart)?')){ cart = []; saveData(); closeCart(); alert('Daftar pelanggaran dikosongkan.'); } }
+
+    // ====== ADMIN LOGIN & CRUD ======
+    function loginAdmin(){
+        const u = document.getElementById('adminUser').value;
+        const p = document.getElementById('adminPass').value;
+        if(u === 'admin' && p === '1234'){
+            isAdmin = true;
+            saveData();
+            document.getElementById('loginError').innerText = '';
+            alert('Login berhasil.');
+            showTab('adminPanel');
+        } else {
+            document.getElementById('loginError').innerText = 'Username atau password salah.';
+        }
+    }
+    function logoutAdmin(){ if(confirm('Logout admin?')){ isAdmin = false; saveData(); showTab('home'); } }
+
+    function updateAdminList(){
+        const container = document.getElementById('adminStudentList');
+        container.innerHTML = '';
+        students.forEach(s=>{
+            const div = document.createElement('div');
+            div.className = 'admin-student';
+            div.innerHTML = `
+                <div style="display:flex; gap:12px; align-items:center;">
+                    <img src="${s.img}" alt="" style="width:56px; height:44px; object-fit:cover; border-radius:6px;">
+                    <div>
+                        <b>${s.name}</b><br>
+                        <small>Kelas ${s.class} | Poin: ${s.points}</small>
+                    </div>
+                </div>
+                <div>
+                    <button onclick="promptEdit(${s.id})">Edit</button>
+                    <button onclick="deleteStudent(${s.id})">Hapus</button>
+                </div>
+            `;
+            container.appendChild(div);
+        });
+    }
+
+    function addStudent(){
+        const name = document.getElementById('newName').value.trim();
+        const cls = document.getElementById('newClass').value.trim();
+        const img = document.getElementById('newImg').value.trim() || 'https://via.placeholder.com/420x320/888888/ffffff?text=No+Image';
+        if(!name || !cls) return alert('Nama dan kelas wajib diisi.');
+        const newS = { id: Date.now(), name, class: cls, points: 0, img, desc: '-', violations: [] };
+        students.push(newS);
+        saveData();
+        document.getElementById('newName').value = '';
+        document.getElementById('newClass').value = '';
+        document.getElementById('newImg').value = '';
+        updateAdminList();
+        alert('Siswa berhasil ditambahkan.');
+    }
+
+    function promptEdit(id){
+        const s = students.find(x=>x.id===id);
+        const newName = prompt('Nama baru:', s.name);
+        if(newName === null) return;
+        const newClass = prompt('Kelas baru:', s.class);
+        if(newClass === null) return;
+        const newImg = prompt('URL foto (biarkan kosong untuk tidak berubah):', s.img);
+        if(newName.trim()) s.name = newName.trim();
+        if(newClass.trim()) s.class = newClass.trim();
+        if(newImg && newImg.trim()) s.img = newImg.trim();
+        saveData();
+        updateAdminList();
+        alert('Data siswa diperbarui.');
+    }
+
+    function deleteStudent(id){
+        if(!confirm('Hapus siswa ini? Aksi tidak bisa dibatalkan.')) return;
+        students = students.filter(s=>s.id !== id);
+        // hapus cart terkait siswa
+        cart = cart.filter(c => c.studentId !== id);
+        saveData();
+        updateAdminList();
+        loadStudents();
+    }
+
+    function prepareQuickEdit(id){
+        // jika admin, langsung prompt edit, bila bukan admin minta login
+        if(!isAdmin){ alert('Hanya admin yang bisa edit. Silakan login.'); showTab('loginPage'); return; }
+        promptEdit(id);
+        loadStudents();
+    }
+
+    // ====== EXPORT CSV (Excel) ======
+    function exportAllCSV(){
+        if(cart.length === 0) return alert('Tidak ada data pelanggaran untuk diexport.');
+        let csv = 'Nama,Kelas,Jenis,Poin,Deskripsi,Waktu\n';
+        cart.forEach(c=>{
+            const time = new Date(c.time).toLocaleString();
+            const line = `"${c.student}","${c.class}","${c.type}",${c.point},"${c.desc.replace(/"/g,'""')}","${time}"\n`;
+            csv += line;
+        });
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'pelanggaran_siswa.csv';
+        a.click();
+    }
+
+    function downloadAllCSV(){ exportAllCSV(); }
+
+    // ====== EXPORT RAPORT PDF PER SISWA (menggunakan jsPDF) ======
+    async function exportPDF(){
+        if(!currentStudent) return alert('Buka detail siswa yang ingin dicetak raportnya.');
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        doc.setFontSize(18);
+        doc.text('RAPORT PELANGGARAN SISWA', 14, 20);
+        doc.setFontSize(12);
+        doc.text(`Nama : ${currentStudent.name}`, 14, 34);
+        doc.text(`Kelas : ${currentStudent.class}`, 14, 42);
+        doc.text(`Total Poin : ${currentStudent.points}`, 14, 50);
+        doc.text(`Tanggal Cetak : ${new Date().toLocaleString()}`, 14, 58);
+
+        doc.setFontSize(13);
+        doc.text('Riwayat Pelanggaran:', 14, 74);
+        doc.setFontSize(11);
+        // tampilkan list pelanggaran
+        let y = 84;
+        if(currentStudent.violations.length === 0){
+            doc.text('- Tidak ada pelanggaran -', 14, y);
+        } else {
+            currentStudent.violations.forEach((v, i) => {
+                // long text wrap
+                const split = doc.splitTextToSize(`${i+1}. ${v}`, 180);
+                doc.text(split, 14, y);
+                y += (split.length * 6);
+                if(y > 270){
+                    doc.addPage();
+                    y = 20;
+                }
+            });
+        }
+
+        doc.save(`raport_${currentStudent.name.replace(/\s+/g,'_')}.pdf`);
+    }
+
+    function exportSelectedPDF(){
+        alert('Untuk mencetak PDF per siswa: buka detail siswa (lihat detail), lalu klik "Cetak Raport (PDF)".');
+    }
+
+    // ====== FILTER PELANGGARAN (BERDASARKAN BULAN & TIPE) ======
+    function filterViolations(){
+        const month = document.getElementById('filterMonth').value;
+        const type = document.getElementById('filterType').value;
+        let results = cart.slice(); // copy
+
+        if(month){
+            results = results.filter(r => new Date(r.time).getMonth() + 1 == parseInt(month));
+        }
+        if(type){
+            results = results.filter(r => r.type === type);
+        }
+
+        const box = document.getElementById('filteredResults');
+        box.innerHTML = '';
+        if(results.length === 0){ box.innerHTML = '<p>Tidak ada hasil.</p>'; return; }
+
+        results.forEach(r=>{
+            const timeLocal = new Date(r.time).toLocaleString();
+            box.insertAdjacentHTML('beforeend', `
+                <div style="padding:10px; border-bottom:1px solid #eee;">
+                    <b>${r.student}</b> (${r.class})<br>
+                    <small>${timeLocal}</small><br>
+                    Jenis: ${r.type} | Poin: +${r.point}<br>
+                    Deskripsi: ${r.desc}
+                </div>
+            `);
+        });
+    }
+
+    // ====== INISIALISASI ======
+    saveData();
+    updateCartCount();
+    loadStudents();
+
+    // saat pertama kali membuka adminPanel jika sudah login
+    if(isAdmin){
+        // nothing to show until admin open panel
+    }
+
+    // tutup cart modal jika klik diluar
+    document.getElementById('cartModal').addEventListener('click', function(e){
+        if(e.target === this) closeCart();
+    });
+
+    // sebelumunload: save
+    window.addEventListener('beforeunload', saveData);
+
+    </script>
+</body>
+</html>
